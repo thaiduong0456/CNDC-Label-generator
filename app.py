@@ -268,6 +268,54 @@ def create_pdf(cartons: list[Carton], merge_duplicates: bool) -> bytes:
     return output.getvalue()
 
 
+def create_excel_template() -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Packing List"
+    english_headers = [
+        "Item#", "PO No.", "Product Name in English", "SKU#", "BarCode/UPC", "UOM",
+        "Quantity", "Carton#", "Packaging code", "Length (cm)", "Width (cm)",
+        "Height (cm)", "Weight (KG)", "CBM", "Origin", "HTS Code", "OR Code",
+    ]
+    chinese_headers = [
+        "项目", "PO 编码", "货品名称", "SKU编码", "条形码", "单位", "数量", "箱号",
+        "包装条形码", "长", "宽", "高", "重量", "CBM", "原产地", "海关编码", "OR Code",
+    ]
+    example_rows = [
+        [1, "to10825", "Eyewear Sacoche", "TP-WBA-EWS-BLK-34", "4894961083532", "PCS", 40,
+         "1/2", "PGKEC2C17JSH3170001", 61, 41, 42, 14.45, 0.105042, "VN", "4202.92.31", "CN-4785-CTN_POP"],
+        [2, "to10825", "Eyewear Sacoche", "TP-WBA-EWS-MOS-34", "4894961083549", "PCS", 40,
+         "", "", "", "", "", "", "", "VN", "4202.92.31", "CN-4785-CTN_POP"],
+        [3, "to10825", "Cargo Strap", "TP-WST-CGS-CCA-34", "4894961082184", "PCS", 35,
+         "2/2", "PGKEC2C17JSH3170002", 50, 40, 30, 10.5, 0.06, "VN", "5609.00.30", "CN-4785-CTN_POP"],
+    ]
+    worksheet.append(english_headers)
+    worksheet.append(chinese_headers)
+    for row in example_rows:
+        worksheet.append(row)
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="111111")
+    for cell in worksheet[2]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill("solid", fgColor="E5E7EB")
+    for column in ("E", "I"):
+        for cell in worksheet[column]:
+            cell.number_format = "@"
+    widths = {"A": 10, "B": 14, "C": 28, "D": 26, "E": 18, "F": 10, "G": 12,
+              "H": 12, "I": 26, "J": 14, "K": 14, "L": 14, "M": 14, "N": 12,
+              "O": 10, "P": 16, "Q": 24}
+    for column, width in widths.items():
+        worksheet.column_dimensions[column].width = width
+    worksheet.freeze_panes = "A3"
+    output = io.BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
 def pdf_preview(pdf_bytes: bytes) -> None:
     encoded = base64.b64encode(pdf_bytes).decode("ascii")
     st.components.v1.html(
@@ -279,45 +327,37 @@ def pdf_preview(pdf_bytes: bytes) -> None:
 
 st.set_page_config(page_title="Carton Label Generator", page_icon="🏷️", layout="wide")
 st.title("Carton Label Generator")
-st.caption("Tải packing list Excel → kiểm tra carton/SKU → xem trước → tải PDF để in")
+st.caption("Tải Excel → tạo carton label 4×6 inch → xem trước hoặc tải PDF")
+
+st.download_button(
+    "Tải file Excel mẫu",
+    data=create_excel_template(),
+    file_name="packing_list_template.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    use_container_width=True,
+)
 
 uploaded = st.file_uploader("Chọn file Excel (.xlsx)", type=["xlsx"])
 if uploaded is None:
-    st.info("Dữ liệu bắt đầu từ dòng 3. Cột H có giá trị sẽ bắt đầu một carton mới.")
     st.stop()
 
 file_bytes = uploaded.getvalue()
 try:
-    wb_for_sheets = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
-    sheet = st.selectbox("Sheet dữ liệu", wb_for_sheets.sheetnames)
-    cartons, warnings, errors = parse_workbook(file_bytes, sheet)
+    cartons, warnings, errors = parse_workbook(file_bytes)
 except Exception as exc:
     st.error(f"Không thể đọc file Excel: {exc}")
     st.stop()
 
 for message in errors:
     st.error(message)
-for message in warnings:
-    st.warning(message)
 if errors:
     st.stop()
 
-st.success(f"Đã đọc {len(cartons)} carton và {sum(len(c.items) for c in cartons)} dòng SKU.")
-merge_duplicates = st.checkbox("Gộp SKU trùng trong cùng carton", value=False, help="Gộp theo cặp SKU + UPC và cộng Quantity.")
-
-with st.expander("Kiểm tra và sửa tiêu đề label", expanded=False):
-    for index, carton in enumerate(cartons):
-        cols = st.columns([1, 2, 4])
-        cols[0].write(carton.carton_no)
-        cols[1].write(carton.packaging_code)
-        carton.title = cols[2].text_input(
-            f"Tiêu đề carton {carton.carton_no}", carton.title, key=f"title_{index}", label_visibility="collapsed"
-        )
-
-pdf_bytes = create_pdf(cartons, merge_duplicates)
-left, right = st.columns([1, 1])
-left.metric("PDF 4×6 inch", f"{len(cartons)} trang")
-right.download_button(
+pdf_bytes = create_pdf(cartons, merge_duplicates=False)
+preview_col, download_col = st.columns(2)
+if preview_col.button("Xem trước PDF", type="primary", use_container_width=True):
+    st.session_state["show_pdf_preview"] = True
+download_col.download_button(
     "Tải PDF labels",
     data=pdf_bytes,
     file_name=f"carton_labels_{uploaded.name.rsplit('.', 1)[0]}.pdf",
@@ -325,5 +365,5 @@ right.download_button(
     type="primary",
     use_container_width=True,
 )
-st.subheader("Xem trước PDF")
-pdf_preview(pdf_bytes)
+if st.session_state.get("show_pdf_preview", False):
+    pdf_preview(pdf_bytes)
