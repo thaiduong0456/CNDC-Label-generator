@@ -5,6 +5,7 @@ import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
@@ -269,51 +270,7 @@ def create_pdf(cartons: list[Carton], merge_duplicates: bool) -> bytes:
 
 
 def create_excel_template() -> bytes:
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
-
-    workbook = Workbook()
-    worksheet = workbook.active
-    worksheet.title = "Packing List"
-    english_headers = [
-        "Item#", "PO No.", "Product Name in English", "SKU#", "BarCode/UPC", "UOM",
-        "Quantity", "Carton#", "Packaging code", "Length (cm)", "Width (cm)",
-        "Height (cm)", "Weight (KG)", "CBM", "Origin", "HTS Code", "OR Code",
-    ]
-    chinese_headers = [
-        "项目", "PO 编码", "货品名称", "SKU编码", "条形码", "单位", "数量", "箱号",
-        "包装条形码", "长", "宽", "高", "重量", "CBM", "原产地", "海关编码", "OR Code",
-    ]
-    example_rows = [
-        [1, "to10825", "Eyewear Sacoche", "TP-WBA-EWS-BLK-34", "4894961083532", "PCS", 40,
-         "1/2", "PGKEC2C17JSH3170001", 61, 41, 42, 14.45, 0.105042, "VN", "4202.92.31", "CN-4785-CTN_POP"],
-        [2, "to10825", "Eyewear Sacoche", "TP-WBA-EWS-MOS-34", "4894961083549", "PCS", 40,
-         "", "", "", "", "", "", "", "VN", "4202.92.31", "CN-4785-CTN_POP"],
-        [3, "to10825", "Cargo Strap", "TP-WST-CGS-CCA-34", "4894961082184", "PCS", 35,
-         "2/2", "PGKEC2C17JSH3170002", 50, 40, 30, 10.5, 0.06, "VN", "5609.00.30", "CN-4785-CTN_POP"],
-    ]
-    worksheet.append(english_headers)
-    worksheet.append(chinese_headers)
-    for row in example_rows:
-        worksheet.append(row)
-    for cell in worksheet[1]:
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = PatternFill("solid", fgColor="111111")
-    for cell in worksheet[2]:
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill("solid", fgColor="E5E7EB")
-    for column in ("E", "I"):
-        for cell in worksheet[column]:
-            cell.number_format = "@"
-    widths = {"A": 10, "B": 14, "C": 28, "D": 26, "E": 18, "F": 10, "G": 12,
-              "H": 12, "I": 26, "J": 14, "K": 14, "L": 14, "M": 14, "N": 12,
-              "O": 10, "P": 16, "Q": 24}
-    for column, width in widths.items():
-        worksheet.column_dimensions[column].width = width
-    worksheet.freeze_panes = "A3"
-    output = io.BytesIO()
-    workbook.save(output)
-    return output.getvalue()
+    return Path(__file__).with_name("packing_list_template.xlsx").read_bytes()
 
 
 def pdf_preview(pdf_bytes: bytes) -> None:
