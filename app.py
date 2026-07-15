@@ -289,18 +289,118 @@ def pdf_preview(pdf_bytes: bytes, total_pages: int) -> None:
 
 
 st.set_page_config(page_title="Carton Label Generator", page_icon="🏷️", layout="wide")
-st.title("Carton Label Generator")
-st.caption("Tải Excel → tạo carton label 4×6 inch → xem trước hoặc tải PDF")
+st.markdown(
+    """
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background: #eef2f8;
+        color: #172033;
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 920px;
+        margin: 42px auto 70px;
+        padding: 0 42px 42px;
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 18px 50px rgba(24, 52, 88, 0.10);
+        overflow: hidden;
+    }
+    .label-hero {
+        margin: 0 -42px 34px;
+        padding: 42px 58px 38px;
+        background: linear-gradient(125deg, #193a67 0%, #285d91 100%);
+        color: #ffffff;
+    }
+    .label-hero h1 {
+        margin: 0 0 10px;
+        color: #ffffff;
+        font-size: 42px;
+        line-height: 1.12;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+    }
+    .label-hero p {
+        margin: 0;
+        color: #e5eefb;
+        font-size: 19px;
+        line-height: 1.5;
+    }
+    .section-label {
+        margin: 2px 0 10px;
+        color: #172033;
+        font-size: 19px;
+        font-weight: 750;
+    }
+    [data-testid="stFileUploader"] section {
+        min-height: 112px;
+        padding: 18px;
+        border: 2px dashed #c8d6e8;
+        border-radius: 16px;
+        background: #f8fafd;
+    }
+    [data-testid="stFileUploader"] section:hover {
+        border-color: #2f67e8;
+        background: #f4f7ff;
+    }
+    [data-testid="stFileUploader"] button {
+        border-radius: 10px;
+        border-color: #b8c8dd;
+        font-weight: 650;
+    }
+    .stButton > button, .stDownloadButton > button {
+        min-height: 50px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 750;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(35, 82, 160, 0.16);
+    }
+    .stButton > button[kind="primary"],
+    .stDownloadButton > button[kind="primary"] {
+        border-color: #2f67e8;
+        background: #2f67e8;
+        color: #ffffff;
+    }
+    [data-testid="stImage"] img {
+        border: 1px solid #dce4ef;
+        border-radius: 12px;
+        box-shadow: 0 10px 28px rgba(25, 58, 103, 0.10);
+    }
+    [data-testid="stNumberInput"] input { border-radius: 10px; }
+    @media (max-width: 700px) {
+        [data-testid="stMainBlockContainer"] {
+            margin: 0;
+            padding: 0 20px 28px;
+            border-radius: 0;
+        }
+        .label-hero { margin: 0 -20px 26px; padding: 32px 24px; }
+        .label-hero h1 { font-size: 31px; }
+        .label-hero p { font-size: 16px; }
+    }
+    </style>
+    <div class="label-hero">
+        <h1>Packing Label 4×6 inch</h1>
+        <p>Upload Excel, xem trước từng label và tải một file PDF nhiều trang sẵn sàng để in.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-st.download_button(
-    "Tải file Excel mẫu",
+st.markdown('<div class="section-label">File Excel (.xlsx)</div>', unsafe_allow_html=True)
+
+uploaded = st.file_uploader("Chọn file Excel (.xlsx)", type=["xlsx"], label_visibility="collapsed")
+template_col, spacer_col = st.columns([1, 1])
+template_col.download_button(
+    "Tải Excel mẫu",
     data=create_excel_template(),
     file_name="packing_list_template.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     use_container_width=True,
 )
-
-uploaded = st.file_uploader("Chọn file Excel (.xlsx)", type=["xlsx"])
 if uploaded is None:
     st.stop()
 
@@ -317,6 +417,7 @@ if errors:
     st.stop()
 
 pdf_bytes = create_pdf(cartons, merge_duplicates=False)
+st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
 preview_col, download_col = st.columns(2)
 if preview_col.button("Xem trước PDF", type="primary", use_container_width=True):
     st.session_state["show_pdf_preview"] = True
