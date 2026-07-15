@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import io
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import streamlit as st
+import pymupdf
 from openpyxl import load_workbook
 from reportlab.graphics.barcode.code128 import Code128
 from reportlab.lib.units import inch
@@ -273,13 +273,19 @@ def create_excel_template() -> bytes:
     return Path(__file__).with_name("packing_list_template.xlsx").read_bytes()
 
 
-def pdf_preview(pdf_bytes: bytes) -> None:
-    encoded = base64.b64encode(pdf_bytes).decode("ascii")
-    st.components.v1.html(
-        f'<iframe src="data:application/pdf;base64,{encoded}#toolbar=0&navpanes=0" '
-        'width="100%" height="760" style="border:1px solid #ddd;border-radius:8px"></iframe>',
-        height=780,
+def pdf_preview(pdf_bytes: bytes, total_pages: int) -> None:
+    page_number = st.number_input(
+        "Trang xem trước",
+        min_value=1,
+        max_value=total_pages,
+        value=1,
+        step=1,
     )
+    document = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+    page = document.load_page(int(page_number) - 1)
+    pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+    st.image(pixmap.tobytes("png"), width=576)
+    document.close()
 
 
 st.set_page_config(page_title="Carton Label Generator", page_icon="🏷️", layout="wide")
@@ -323,4 +329,4 @@ download_col.download_button(
     use_container_width=True,
 )
 if st.session_state.get("show_pdf_preview", False):
-    pdf_preview(pdf_bytes)
+    pdf_preview(pdf_bytes, len(cartons))
